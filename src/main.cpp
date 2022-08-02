@@ -21,7 +21,7 @@ void setup() {
   FastLED.setMaxPowerInVoltsAndMilliamps( VOLTS, MAX_MA);
   FastLED.addLeds< WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness(20);
-
+  // some comments
   // for (int i = 0; i < NUM_LEDS; i++) {
   //   leds[i].setHue(i * 255 / NUM_LEDS);
   // }
