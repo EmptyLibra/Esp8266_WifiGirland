@@ -23,7 +23,8 @@ public:
     CRGB leds[NUM_LEDS];            // Массив, содержащий все пиксели матрицы
 
     void setPixelXY(uint8_t x, uint8_t y, uint8_t hue);
-    void setPixelXY(uint8_t x, uint8_t y, const CRGB& color);
+    void setPixelXY(uint8_t x, uint8_t y, const CRGB::HTMLColorCode& color);
+    uint32_t getPixXYColor(uint8_t x, uint8_t y);
     void setAllOneColor(uint8_t hue);
     void setAllOneColor(const CRGB::HTMLColorCode& color);
 };
