@@ -2,6 +2,9 @@
 *  1. Библиотека FastLed генерирует кучу предупреждений. 
 *     Чтобы их убрать, надо в файл c_cpp_properties.json в раздел "compilerArgs" 
 *     добавить три следующих флага: -Wmisleading-indentation", -Wdeprecated-declarations, -Wregister.
+
+* Список идей:
+* 1. Если esp не может подключиться к wi-fi, то она становится точкой доступа.
 */
 
 #include <Arduino.h>       // Ардуино библиотека для управления платой
@@ -24,9 +27,6 @@ IPAddress ip(192, 168, 1 , 17);
 IPAddress gateway(192, 168, 1, 254);
 IPAddress subnet(255, 255, 255, 0);
 WiFiServer server(80);               // Создание экземпляра web-сервера с портом для прослушивания
-
-// Класс
-WiFiClient client;
 
 /*=========================== Функции ===========================================*/
 //Инициализация адресной ленты светодиодов (в виде матрицы)
@@ -116,85 +116,63 @@ void setup() {
 // Развернуть всё: ctrl + k + j
 // Свернуть всё: ctrl + k + 0
 
-void controller(String req,  WiFiClient client) {
-  if(req.indexOf("/mode1") != -1){
+String runHttpCommand(String req) {
+  if(req.indexOf("mode1") != -1){
     ledMatrix.setAllOneColor(CRGB::Azure);
-    FastLED.show();
 
-  } else if(req.indexOf("/mode2") != -1){
+  } else if(req.indexOf("mode2") != -1){
     FastLED.clear();
-    FastLED.show();
 
-  } else if(req.indexOf("/mode3") != -1){
+  } else if(req.indexOf("mode3") != -1){
     ledMatrix.setAllOneColor(CRGB::Cyan);
-    FastLED.show();
 
   } else {
     Serial.println("invalid request");
-    client.stop();
-    return;
+    return "Invalid syntax";
   }
+  FastLED.show();
+  return "Command done";
 }
 
-
-void loop() {
-  // for(uint8_t row = 0; row < MATRIX_HEIGHT; row++) {
-  //   for(uint8_t col = 0; col < MATRIX_WIDTH; col++) {
-  //     ledMatrix.setPixelXY(col, row, color);
-  //     FastLED.show();
-  //     delay(30);
-  //   }
-  //   row++;
-  //   for(int col = MATRIX_WIDTH-1; col >= 0; col--) {
-  //     ledMatrix.setPixelXY(col, row, color);
-  //     FastLED.show();
-  //     delay(30);
-  //   }
-  // }
-  // color += 30;
-  // for(int row = MATRIX_HEIGHT-1; row >= 0; row--) {
-  //   for(uint8_t col = 0; col < MATRIX_WIDTH; col++) {
-  //     ledMatrix.setPixelXY(col, row, color);
-  //     FastLED.show();
-  //     delay(30);
-  //   }
-  //   row--;
-  //   for(int col = MATRIX_WIDTH-1; col >= 0; col--) {
-  //     ledMatrix.setPixelXY(col, row, color);
-  //     FastLED.show();
-  //     delay(30);
-  //   }
-  // }
-  // color += 30;
-
-  // Мигаем первым светодиодом
-  // ledMatrix.setPixelXY(0, 1, (ledMatrix.getPixXYColor(0, 1) == CRGB::LightYellow ? CRGB::Black : CRGB::LightYellow));
-  FastLED.show();
-
-  // Подключение нового клиента
-  client = server.available();
-  if (!client) { return; }
-
-  // Ждём, пока клиент что-нибудь не отправит
-  Serial.println("new client");
-  while(!client.available()){
-    delay(1);
-  }
-
+// Обработка запроса (команды) от клиента
+void processRequest(WiFiClient& client) {
   // Читаем первую строку запроса
   String req = client.readStringUntil('\r');
-  Serial.println(req);
+  Serial.print("Command: "); Serial.println(req);
 
-  // Совпадение с запросом
-  controller(req, client);
-  client.flush(); 
+  // Проверяем совпадение команды с имеющимися, выполняем её и получаем результат 
+  String answer = runHttpCommand(req);
 
-  // Подготавливаем ответ
-  String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-  s += "anwer";
-
-  // Отправка запроса клиенту
-  client.print(s);
+  // Отправка ответа клиенту
+  client.flush();        // Очистка буфера клиента
+  client.print("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n" + answer);  // Отправка ответа клинту
+  //client.stop();         // Отключение клиента (если это добавить, то клиент не получит ответ)
+  Serial.println("Answer: " + answer);
   delay(1);
   Serial.println("Client disonnected");
+}
+
+void loop() {
+  // Подключение нового клиента
+  WiFiClient client = server.available();
+  if (!client) { return; }
+
+  uint64_t timeout = millis();
+  Serial.println("\nNew client");
+  
+  // Ждём 5 секунд, пока клиент что-нибудь не отправит
+  while(!client.available()) {
+    delay(1);
+    // Если клиент ничего не отправляет в течении 2 секунд, то закрываем с ним соединение
+    if(millis() - timeout > 2000) {
+      client.flush();  // Очистка буфера клиента
+      client.print("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nTimeout (5 sec) !!!");
+      client.stop();   // Отключение клиента
+      Serial.println("Client Timeout !\nClient disonnected");
+      return;
+    }
+  }
+
+  // Обработка запроса (команды) от пользователя
+  processRequest(client);
 }
