@@ -1,7 +1,8 @@
 #ifndef __LED_MATRIX_LIB_H
 #define __LED_MATRIX_LIB_H
 
-#include "FastLED.h"
+#include <Arduino.h>           // Ардуино библиотека для управления платой
+#include "FastLED.h"  // Библиотека для обращения к ленте
 
 /*=========================== Макросы ===========================================*/
 //----- Настройки Ленты ------
@@ -19,14 +20,27 @@
 /*=========================== Переменные ===========================================*/
 // Объявление класса для матрицы из светодиодов
 class LedMatrix {
+private:
+    uint8_t baseBrightness = 128;
+    uint8_t baseHue = 64;
 public:
     CRGB leds[NUM_LEDS];            // Массив, содержащий все пиксели матрицы
+
+    void matrixinit();
 
     void setPixelXY(uint8_t x, uint8_t y, uint8_t hue);
     void setPixelXY(uint8_t x, uint8_t y, const CRGB::HTMLColorCode& color);
     uint32_t getPixXYColor(uint8_t x, uint8_t y);
     void setAllOneColor(uint8_t hue);
     void setAllOneColor(const CRGB::HTMLColorCode& color);
-};
 
+    void standartFlashing();
+    void confetti2();
+    void cylonfill();
+    void emptyEffect();
+};
+extern LedMatrix ledMatrix;
+
+// Указатель на текущий выбранный эффект ленты (указатель на метод класса)
+extern void(LedMatrix::*curLedEffect)();
 #endif
