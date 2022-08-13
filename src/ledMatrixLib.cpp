@@ -26,6 +26,18 @@ void LedMatrix::matrixinit() {
     delay( 1000 );
 }
 
+/** @brief  Установка базового цвета для гирлянды
+  * @param  color: цвет в формате #RRGGBB
+  * @return None
+*/
+void LedMatrix::setBaseColor(uint32_t color) { baseColor = CRGB(color); }
+
+/** @brief  Возвращаетбазовый цвет гирлянды
+  * @param  None
+  * @return цвет в формате CRGB
+*/
+CRGB LedMatrix::getBaseColor() { return baseColor; }
+
 /** Установка цвета (цветового тона по модели HSV) конкретному пикселю 
 * @param x: координата пикселя по горизонтали [0, MATRIX_WIDTH]
 * @param y: координата пикселя по вертикали [0, MATRIX_HEIGHT]
@@ -77,16 +89,17 @@ uint32_t LedMatrix::getPixXYColor(uint8_t x, uint8_t y) {
     return (((uint32_t)leds[coord].r << 16) | ((long)leds[coord].g << 8 ) | (long)leds[coord].b);
 }
 
-/** Установка цвета (цветового тона по модели HSV) всем пикселям 
-* @param  hue: цвет (цветовой тон) - число в дипазано [0, 255]
+/** Установка цвета (по модели RGB) всем пикселям
+* @param  color: цвет - объект класса CRGB или перечисления HTMLColorCode.              
 * @return 
-* @note   Значения некоторых цветов (параметр hue): 
-*         hue = 0 - красный, 32 - оранжевый, 64 - жёлтый, 96 - зелёный, 128 - голубой,
-*         160 -   синий, 192 - фиолетовый, 222 - розовый, 255 - красный. 
+* @note   Значения для color указывается либо как конкретный цвет из перечисления: CRGB::Red, 
+*         либо вызывается один из конструкторов класса CRGB:
+*         CRGB(red, green, blue), например: CRGB(106,153,85) - цвет комментариев в VScode,
+*         CRGB(colorcode), например: CRGB(0x6A9955)
 */
-void LedMatrix::setAllOneColor(uint8_t hue) {
+void LedMatrix::setAllOneColor(const CRGB::HTMLColorCode& color) {
     for (uint16_t i = 0; i < NUM_LEDS; i++) {
-        leds[i].setHue(hue);
+        leds[i] = color;
     }
 }
 
@@ -98,7 +111,7 @@ void LedMatrix::setAllOneColor(uint8_t hue) {
 *         CRGB(red, green, blue), например: CRGB(106,153,85) - цвет комментариев в VScode,
 *         CRGB(colorcode), например: CRGB(0x6A9955)
 */
-void LedMatrix::setAllOneColor(const CRGB::HTMLColorCode& color) {
+void LedMatrix::setAllOneColor(CRGB color) {
     for (uint16_t i = 0; i < NUM_LEDS; i++) {
         leds[i] = color;
     }
@@ -124,7 +137,7 @@ void LedMatrix::confetti2() {
     // random colored speckles that blink in and fade smoothly
     fadeToBlackBy( leds, NUM_LEDS, 10);
     int pos = random16(NUM_LEDS);
-    leds[pos] += CHSV( baseHue + random8(64), 200, 255);
+    leds[pos] += CHSV( rgb2hsv_approximate(baseColor).hue  + random8(64), 200, 255);
 }
 
 void LedMatrix::cylonfill(){

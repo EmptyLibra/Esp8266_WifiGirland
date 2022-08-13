@@ -22,17 +22,21 @@
 class LedMatrix {
 private:
     uint8_t baseBrightness = 128;
-    uint8_t baseHue = 64;
+    CRGB baseColor = CRGB::Yellow;
+
 public:
     CRGB leds[NUM_LEDS];            // Массив, содержащий все пиксели матрицы
 
     void matrixinit();
 
+    void setBaseColor(uint32_t color);
+    CRGB getBaseColor();
+
     void setPixelXY(uint8_t x, uint8_t y, uint8_t hue);
     void setPixelXY(uint8_t x, uint8_t y, const CRGB::HTMLColorCode& color);
     uint32_t getPixXYColor(uint8_t x, uint8_t y);
-    void setAllOneColor(uint8_t hue);
     void setAllOneColor(const CRGB::HTMLColorCode& color);
+    void setAllOneColor(CRGB color);
 
     void standartFlashing();
     void confetti2();

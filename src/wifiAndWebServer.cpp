@@ -13,6 +13,8 @@ ESP8266WebServer server(80);           // Создание экземпляра 
 
 static void handleNotFound();
 static void handleEffects();
+static void handlerSetColor();
+static void handlerCmd();
 
 /** @brief  Инициализирует wifi-подключение к домашнему WiFi в режиме станции (STA)
   *         или создает точку доступа
@@ -84,6 +86,8 @@ void wifiInit() {
 void httpServerInit() {
     server.onNotFound(handleNotFound);    // Обработчик несуществующих запросов
     server.on("/effect", handleEffects);  // Обработчик запросов на выбор эффекта
+    server.on("/setBaseColor", handlerSetColor); // Установка базового цвета
+    server.on("/cmd", handlerCmd);               // Обработка кратких команд
     server.begin();                       // Запуск Web-сервера
 
     // Записываем IP адрес
@@ -111,7 +115,8 @@ void handleEffects() {
     String status = server.arg("ef");
     if (status == "mode1") {
         curLedEffect = &LedMatrix::emptyEffect;
-        ledMatrix.setAllOneColor(CRGB::Azure);
+        ledMatrix.setAllOneColor(CRGB::White);
+        FastLED.setBrightness(255);
         server.send(200, "text/plain", "Effect Azure");
     }
 
@@ -125,4 +130,44 @@ void handleEffects() {
         server.send(200, "text/plain", "Effect confetti2");
     }
 }
-//
+
+// stoi(s, 0, 16); hex string to int
+/** @brief  Обработчик запросов на утановку цвета: http://192.168.1.17/setBaseColor?color={переменная}
+  * @param  None
+  * @return None */
+void handlerSetColor() {
+    // Получаем присланный цветовой код
+    String status = server.arg("color");
+    uint32_t colorHex;
+    sscanf(status.c_str(), "%x", &colorHex);
+
+    // Установка базового цвета
+    ledMatrix.setBaseColor(colorHex);
+
+    if(curLedEffect == &LedMatrix::emptyEffect) {
+        ledMatrix.setAllOneColor(CRGB(colorHex));
+        FastLED.setBrightness(rgb2hsv_approximate(colorHex).value);
+        FastLED.show();
+    }
+    
+    server.send(200, "text/plain", String(colorHex, HEX));
+}
+
+void handlerCmd() {
+    // Получаем присланный цветовой код
+    String status = server.arg("cmd");
+
+    if (status == "powerOn") {
+        curLedEffect = &LedMatrix::emptyEffect;
+        ledMatrix.setAllOneColor(ledMatrix.getBaseColor());
+        FastLED.show();
+        server.send(200, "text/plain", WiFi.localIP().toString());
+    }
+
+    if (status == "powerOff") {
+        curLedEffect = &LedMatrix::emptyEffect;
+        FastLED.clear();
+        FastLED.show();
+        server.send(200, "text/plain", WiFi.localIP().toString());
+    }
+}
