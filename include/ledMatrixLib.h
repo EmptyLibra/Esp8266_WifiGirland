@@ -21,16 +21,13 @@
 // Объявление класса для матрицы из светодиодов
 class LedMatrix {
 private:
-    uint8_t baseBrightness = 128;
-    CRGB baseColor = CRGB::Yellow;
-
 public:
+    bool state = false;             // Состояние гирлянды (включена, выключена)
+    uint8_t baseBrightness = 128;   // Базовая яркость гирлянды
+    CRGB baseColor = CRGB::Yellow;  // Базовый цвет гирлянды
     CRGB leds[NUM_LEDS];            // Массив, содержащий все пиксели матрицы
 
     void matrixinit();
-
-    void setBaseColor(uint32_t color);
-    CRGB getBaseColor();
 
     void setPixelXY(uint8_t x, uint8_t y, uint8_t hue);
     void setPixelXY(uint8_t x, uint8_t y, const CRGB::HTMLColorCode& color);

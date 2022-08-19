@@ -11,10 +11,7 @@ ESP8266WebServer server(80);           // Создание экземпляра 
 
 /*=========================== Функции ===========================================*/
 
-static void handleNotFound();
-static void handleEffects();
-static void handlerSetColor();
-static void handlerCmd();
+extern void EEPROM_SaveAllConfig();
 
 /** @brief  Инициализирует wifi-подключение к домашнему WiFi в режиме станции (STA)
   *         или создает точку доступа
@@ -80,24 +77,10 @@ void wifiInit() {
     delay(1000);
 }
 
-/** @brief  Инициализирует http (web) сервер и назначает обработчики запросов
-  * @param  None
-  * @return None */
-void httpServerInit() {
-    server.onNotFound(handleNotFound);    // Обработчик несуществующих запросов
-    server.on("/effect", handleEffects);  // Обработчик запросов на выбор эффекта
-    server.on("/setBaseColor", handlerSetColor); // Установка базового цвета
-    server.on("/cmd", handlerCmd);               // Обработка кратких команд
-    server.begin();                       // Запуск Web-сервера
-
-    // Записываем IP адрес
-    Serial.print("Server started\n"); Serial.println(WiFi.localIP());
-}
-
 /** @brief  Обработчик несуществующих запросов 
   * @param  None
   * @return None */
-void handleNotFound() {
+static void handleNotFound() {
     String message = "File Not Found\n\nURI: " + server.uri();
     message += "\nMethod: " + (server.method() == HTTP_GET) ? "GET" : "POST";
     message += "\nArguments: " + server.args();
@@ -111,7 +94,7 @@ void handleNotFound() {
 /** @brief  Обработчик запросов на выбор эффекта: http://192.168.1.17/effect?ef={переменная}
   * @param  None
   * @return None */
-void handleEffects() {
+static void handleEffects() {
     String status = server.arg("ef");
     if (status == "mode1") {
         curLedEffect = &LedMatrix::emptyEffect;
@@ -131,43 +114,86 @@ void handleEffects() {
     }
 }
 
-// stoi(s, 0, 16); hex string to int
-/** @brief  Обработчик запросов на утановку цвета: http://192.168.1.17/setBaseColor?color={переменная}
+/** @brief  Обработчик запросов на утановку цвета: http://192.168.1.17/setColor?color={value}
   * @param  None
   * @return None */
-void handlerSetColor() {
+static void handlerSetColor() {
     // Получаем присланный цветовой код
     String status = server.arg("color");
     uint32_t colorHex;
     sscanf(status.c_str(), "%x", &colorHex);
 
-    // Установка базового цвета
-    ledMatrix.setBaseColor(colorHex);
+    // Установка базового цвета и яркости
+    ledMatrix.baseColor = CRGB(colorHex);
+    ledMatrix.baseBrightness = rgb2hsv_approximate(colorHex).value;
 
     if(curLedEffect == &LedMatrix::emptyEffect) {
         ledMatrix.setAllOneColor(CRGB(colorHex));
-        FastLED.setBrightness(rgb2hsv_approximate(colorHex).value);
+        FastLED.setBrightness(ledMatrix.baseBrightness);
         FastLED.show();
     }
     
     server.send(200, "text/plain", String(colorHex, HEX));
+    Serial.printf("answer= %s\n", String(colorHex, HEX).c_str());
 }
 
-void handlerCmd() {
-    // Получаем присланный цветовой код
-    String status = server.arg("cmd");
+/** @brief  Обработчик запросов на отдельные команды (какой-то из команд может и не быть): 
+  *         http://192.168.1.17/cmd?getState={1}&setState={0|1}&saveAllConfig={1}&getBaseColor={1}
+  * @param  None
+  * @return None */
+static void handlerCmd() {
+    String argStatus, argName;
+    String answer = "";
+    for(int i = 0; i < server.args(); i++) {
+        argStatus = server.arg(i);
+        argName = server.argName(i);
 
-    if (status == "powerOn") {
-        curLedEffect = &LedMatrix::emptyEffect;
-        ledMatrix.setAllOneColor(ledMatrix.getBaseColor());
-        FastLED.show();
-        server.send(200, "text/plain", WiFi.localIP().toString());
+        // Проверка наличия команды на получение состояния
+        if(argName == "getState" && argStatus == "1") {
+            answer += "state=" + String(ledMatrix.state ? "1" : "0") + ";";
+            continue;
+        }
+
+        // Проверка наличия команды на установку состояния
+        if(argName == "setState" && (argStatus == "1" || argStatus == "0")) {
+            if(argStatus == "0") FastLED.clear();
+
+            ledMatrix.state = argStatus.toInt();
+            answer += "Set state success. State = " + String(ledMatrix.state) + ";";
+            continue;
+        }
+
+        // Проверка наличия команды сохранения всех настроек в EEPROM
+        if(argName == "saveAllConfig" && argStatus == "1") {
+            EEPROM_SaveAllConfig();
+            answer += "Save All config...;";
+            continue;
+        }
+
+        // Проверка наличия команды запроса базового цвета
+        if(argName == "getBaseColor" && argStatus == "1") {
+            uint32_t color = ((uint32_t)ledMatrix.baseColor.r << 16) + 
+                             ((uint32_t)ledMatrix.baseColor.g <<  8) + 
+                             (uint32_t)ledMatrix.baseColor.b;
+            answer += "color=" + String(color, 16);
+            continue;
+        }
     }
 
-    if (status == "powerOff") {
-        curLedEffect = &LedMatrix::emptyEffect;
-        FastLED.clear();
-        FastLED.show();
-        server.send(200, "text/plain", WiFi.localIP().toString());
-    }
+    server.send(200, "text/plain", answer.c_str());
+    Serial.printf("answer= %s\n", answer.c_str());
+}
+
+/** @brief  Инициализирует http (web) сервер и назначает обработчики запросов
+  * @param  None
+  * @return None */
+void httpServerInit() {
+    server.onNotFound(handleNotFound);           // Обработчик несуществующих запросов
+    server.on("/effect", handleEffects);         // Обработчик запросов на выбор эффекта
+    server.on("/setBaseColor", handlerSetColor); // Установка базового цвета
+    server.on("/cmd", handlerCmd);               // Обработка кратких команд
+    server.begin();                              // Запуск Web-сервера
+
+    // Записываем IP адрес
+    Serial.print("Server started\n"); Serial.println(WiFi.localIP());
 }

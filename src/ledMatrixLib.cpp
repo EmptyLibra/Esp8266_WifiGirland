@@ -26,18 +26,6 @@ void LedMatrix::matrixinit() {
     delay( 1000 );
 }
 
-/** @brief  Установка базового цвета для гирлянды
-  * @param  color: цвет в формате #RRGGBB
-  * @return None
-*/
-void LedMatrix::setBaseColor(uint32_t color) { baseColor = CRGB(color); }
-
-/** @brief  Возвращаетбазовый цвет гирлянды
-  * @param  None
-  * @return цвет в формате CRGB
-*/
-CRGB LedMatrix::getBaseColor() { return baseColor; }
-
 /** Установка цвета (цветового тона по модели HSV) конкретному пикселю 
 * @param x: координата пикселя по горизонтали [0, MATRIX_WIDTH]
 * @param y: координата пикселя по вертикали [0, MATRIX_HEIGHT]
