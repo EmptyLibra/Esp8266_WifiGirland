@@ -25,9 +25,11 @@ void EEPROM_SaveAllConfig() {
     EEPROM.begin(EEPROM_SIZE);      // Инициализируем память
     EEPROM.put(0, ledMatrix.state); // Записываем состояние в буфер (1 байт)
     EEPROM.put(1, ledMatrix.baseBrightness);  // Записываем яркость в буфер (1 байт)
-    uint32_t colorCode = (uint32_t)ledMatrix.baseColor.r << 16 + 
-                         (uint32_t)ledMatrix.baseColor.g << 8 + 
+    uint32_t colorCode = ((uint32_t)ledMatrix.baseColor.r << 16) + 
+                         ((uint32_t)ledMatrix.baseColor.g << 8) + 
                          (uint32_t)ledMatrix.baseColor.b;
+    Serial.printf("Save color code: %x\n", colorCode);
+
     EEPROM.put(2, colorCode);       // Записываем цвет в буфер (4 байта)
     EEPROM.commit();                // Записываем данные в память
     EEPROM.end();
@@ -44,6 +46,7 @@ void EPROM_GetAllConfig() {
 
     uint32_t colorCode;
     EEPROM.get(2, colorCode);                  // Считываем цвет (4 байта)
+    Serial.printf("Get color code: %x\n", colorCode);
     ledMatrix.baseColor = CRGB(colorCode);
 
     EEPROM.end();

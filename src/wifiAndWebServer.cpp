@@ -114,14 +114,13 @@ static void handleEffects() {
     }
 }
 
-/** @brief  Обработчик запросов на утановку цвета: http://192.168.1.17/setColor?color={value}
+/** @brief  Обработчик запросов на утановку цвета и яркости: http://192.168.1.17/setColor?color={value}
   * @param  None
   * @return None */
 static void handlerSetColor() {
     // Получаем присланный цветовой код
-    String status = server.arg("color");
     uint32_t colorHex;
-    sscanf(status.c_str(), "%x", &colorHex);
+    sscanf(server.arg("color").c_str(), "%x", &colorHex);
 
     // Установка базового цвета и яркости
     ledMatrix.baseColor = CRGB(colorHex);
@@ -134,11 +133,14 @@ static void handlerSetColor() {
     }
     
     server.send(200, "text/plain", String(colorHex, HEX));
-    Serial.printf("answer= %s\n", String(colorHex, HEX).c_str());
 }
 
 /** @brief  Обработчик запросов на отдельные команды (какой-то из команд может и не быть): 
-  *         http://192.168.1.17/cmd?getState={1}&setState={0|1}&saveAllConfig={1}&getBaseColor={1}
+  *         Возможные команды: 
+  *         1. getAllConfig=1  - получение все данные о ленте (состояние, цвет, ...)
+  *         3. saveAllConfig=1 - сохранить все настройки в EEPROM
+  *         4. setState=1      - установить состояние гирлянды
+  *         http://192.168.1.17/cmd?setState={0|1}&saveAllConfig={1}&getAllConfig={1}
   * @param  None
   * @return None */
 static void handlerCmd() {
@@ -148,9 +150,13 @@ static void handlerCmd() {
         argStatus = server.arg(i);
         argName = server.argName(i);
 
-        // Проверка наличия команды на получение состояния
-        if(argName == "getState" && argStatus == "1") {
+        // Проверка наличия команды на получение всех данных
+        if(argName == "getAllConfig" && argStatus == "1") {
             answer += "state=" + String(ledMatrix.state ? "1" : "0") + ";";
+            uint32_t color = ((uint32_t)ledMatrix.baseColor.r << 16) + 
+                             ((uint32_t)ledMatrix.baseColor.g <<  8) + 
+                             (uint32_t)ledMatrix.baseColor.b;
+            answer += "color=" + String(color, 16) + ";";
             continue;
         }
 
@@ -169,19 +175,9 @@ static void handlerCmd() {
             answer += "Save All config...;";
             continue;
         }
-
-        // Проверка наличия команды запроса базового цвета
-        if(argName == "getBaseColor" && argStatus == "1") {
-            uint32_t color = ((uint32_t)ledMatrix.baseColor.r << 16) + 
-                             ((uint32_t)ledMatrix.baseColor.g <<  8) + 
-                             (uint32_t)ledMatrix.baseColor.b;
-            answer += "color=" + String(color, 16);
-            continue;
-        }
     }
 
     server.send(200, "text/plain", answer.c_str());
-    Serial.printf("answer= %s\n", answer.c_str());
 }
 
 /** @brief  Инициализирует http (web) сервер и назначает обработчики запросов
